@@ -110,7 +110,6 @@
 
         td.cell-day { cursor: pointer; user-select: none; width: 50px; font-weight: 600; transition: background-color 0.1s; }
 
-        /* Colonne nomi sticky corrette per ignorare il colspan della riga contatore */
         th:nth-child(1), tr:not(.counter-row) > td:nth-child(1) {
             position: sticky; left: 0; z-index: 2;
             background-color: var(--surface); text-align: left; min-width: 140px;
@@ -147,14 +146,12 @@
             border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px; display: inline-block;
         }
 
-        /* Stile per i nomi modificabili */
         .editable-name {
             padding: 2px 4px; border-radius: 4px; border: 1px dashed transparent;
             transition: all 0.2s; outline: none; cursor: text;
         }
         .editable-name:hover { border-color: var(--border); background: rgba(0,0,0,0.03); }
         .editable-name:focus { border-color: var(--poste-blue); background: #fff; border-style: solid; }
-
     </style>
 </head>
 <body>
@@ -212,7 +209,6 @@
 
 <script>
     let appData = { startDate: '', endDate: '', members: [], plans: {} };
-    // Array nomi completi per l'Excel
     const daysFull = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 
     window.onload = () => {
@@ -307,23 +303,21 @@
         if (member) { member.isLeader = !member.isLeader; saveData(); renderTable(); }
     };
 
-    // Funzione per l'aggiornamento inline di Nome e Cognome
     window.updateMember = function(oldId, field, newValue) {
         newValue = newValue.trim();
         const memberIndex = appData.members.findIndex(m => m.id === oldId);
-        if (memberIndex === -1 || !newValue) return renderTable(); // Ripristina se vuoto
+        if (memberIndex === -1 || !newValue) return renderTable();
 
         const member = appData.members[memberIndex];
-        if (member[field] === newValue) return; // Nessun vero cambiamento
+        if (member[field] === newValue) return;
 
         member[field] = newValue;
         const newId = `${member.cognome} ${member.nome}`;
 
-        // Se l'ID composito cambia, migriamo i dati delle ferie
         if (newId !== oldId) {
             if (appData.members.some(m => m.id === newId && m !== member)) {
                 alert("Nominativo già esistente, impossibile rinominare.");
-                return renderTable(); // Ripristina
+                return renderTable();
             }
             member.id = newId;
             appData.plans[newId] = appData.plans[oldId] || {};
@@ -459,7 +453,7 @@
         while (current <= endD) {
             dates.push(new Date(current));
             headerRow1.push(`${String(current.getDate()).padStart(2, '0')}/${String(current.getMonth()+1).padStart(2,'0')}`);
-            headerRow2.push(daysFull[current.getDay()]); // Usa il nome esteso del giorno
+            headerRow2.push(daysFull[current.getDay()]); 
             current.setDate(current.getDate() + 1);
         }
 
@@ -471,7 +465,7 @@
         });
 
         appData.members.forEach(member => {
-            const row = [member.cognome, member.nome];
+            const row = [member.cognome + (member.isLeader ? ' (L)' : ''), member.nome];
             dates.forEach(d => {
                 let val = '';
                 if (checkDayType(d) === 'workday') {
@@ -487,7 +481,6 @@
         const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(aoa);
         const range = XLSX.utils.decode_range(ws['!ref']);
         
-        // Formattazione Avanzata basata sull'immagine fornita
         for (let R = range.s.r; R <= range.e.r; ++R) {
             for (let C = range.s.c; C <= range.e.c; ++C) {
                 const cell_ref = XLSX.utils.encode_cell({c:C, r:R});
@@ -505,14 +498,12 @@
 
                 if (R === 0 || R === 1) {
                     if (C < 2) {
-                        // Headers "Cognome" / "Nome"
                         cell.s.font = { name: "Arial", sz: 14, bold: true, color: { rgb: "0146BC" } };
                         cell.s.fill = { fgColor: { rgb: "F5F5F7" } };
                     } else {
-                        // Headers Date e Giorni
                         const dayType = checkDayType(dates[C - 2]);
                         const isWeekend = (dayType === 'weekend' || dayType === 'holiday');
-                        cell.s.fill = { fgColor: { rgb: isWeekend ? "EAEAEA" : "FFFFFF" } }; // Grigio per i weekend, bianco per feriali
+                        cell.s.fill = { fgColor: { rgb: isWeekend ? "EAEAEA" : "FFFFFF" } }; 
                         
                         if (R === 0) {
                             cell.s.font = { name: "Arial", sz: 12, bold: true, color: { rgb: isWeekend ? "666666" : "0146BC" } };
@@ -521,22 +512,20 @@
                         }
                     }
                 } else if (C >= 2) {
-                    // Celle dati
                     const dayType = checkDayType(dates[C - 2]);
                     const isWeekend = (dayType === 'weekend' || dayType === 'holiday');
                     
                     if (cell.v === 'F') {
-                        cell.s.fill = { fgColor: { rgb: "204BB5" } }; // Blu Intenso per le ferie
+                        cell.s.fill = { fgColor: { rgb: "204BB5" } }; 
                         cell.s.font = { name: "Arial", sz: 11, bold: true, color: { rgb: "FFFFFF" } };
                     } else if (cell.v === 'S') {
                         cell.s.fill = { fgColor: { rgb: "EDDC01" } }; 
                         cell.s.font = { name: "Arial", sz: 11, bold: true, color: { rgb: "0146BC" } };
                     } else {
-                        cell.s.fill = { fgColor: { rgb: isWeekend ? "EAEAEA" : "FFFFFF" } }; // Sfondo grigio in cascata per i weekend
+                        cell.s.fill = { fgColor: { rgb: isWeekend ? "EAEAEA" : "FFFFFF" } }; 
                         cell.s.font = { name: "Arial", sz: 11, color: { rgb: "000000" } };
                     }
                 } else {
-                    // Celle Nomi / Cognomi
                     cell.s.alignment.horizontal = "left";
                     cell.s.font = { name: "Arial", sz: 12, color: { rgb: "000000" } };
                 }
@@ -547,8 +536,22 @@
         ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } });
         ws['!merges'].push({ s: { r: 0, c: 1 }, e: { r: 1, c: 1 } });
 
-        const wscols = [{ wch: 18 }, { wch: 15 }];
-        for(let i=0; i<dates.length; i++) wscols.push({ wch: 11 }); // Colonne più larghe per accomodare il nome del giorno esteso
+        // --- ALGORITMO CALCOLO LARGHEZZA COLONNE DINAMICA E COMPATTA ---
+        const wscols = [];
+        for (let C = 0; C <= range.e.c; ++C) {
+            let maxLen = 0;
+            for (let R = 0; R <= range.e.r; ++R) {
+                const cell_ref = XLSX.utils.encode_cell({c: C, r: R});
+                const cell = ws[cell_ref];
+                if (cell && cell.v) {
+                    const len = String(cell.v).length;
+                    if (len > maxLen) maxLen = len;
+                }
+            }
+            // Math.max garantisce che la colonna non collassi sotto una misura minima (5 caratteri)
+            // Aggiungiamo un micro-padding di +2 caratteri per staccare il testo dal bordo
+            wscols.push({ wch: Math.max(maxLen + 2, 5) });
+        }
         ws['!cols'] = wscols;
 
         XLSX.utils.book_append_sheet(wb, ws, "Pianificazione");
@@ -557,6 +560,5 @@
         triggerFeedback(btn, "Scaricato!");
     }
 </script>
-
 </body>
 </html>
