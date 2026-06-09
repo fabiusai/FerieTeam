@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pianificazione Ferie Team</title>
+    <link rel="icon" href="favicon.ico">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+    <style>
+        :root {
+            --poste-blue: #0146bc;
+            --poste-yellow: #eddc01;
+            --bg-color: #f5f5f7;
+            --surface: #ffffff;
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            --border: #d2d2d7;
+            --weekend-bg: #f2f4f7;
+            --alert-color: #ff3b30;
+            --radius: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding-bottom: 60px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        header { padding: 40px 20px 20px; text-align: center; }
+        h1 { font-weight: 700; font-size: 2rem; letter-spacing: -0.5px; color: var(--text-main); }
+        h2 { font-size: 1.2rem; font-weight: 600; color: var(--text-main); margin-bottom: 20px; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+        .panel {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+            border: 1px solid rgba(0,0,0,0.02);
+            margin-bottom: 24px;
+        }
+
+        .flex-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 8px; }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        input[type="date"], input[type="text"] {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            min-width: 180px;
+            background-color: var(--surface);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="date"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--poste-blue);
+            box-shadow: 0 0 0 3px rgba(1, 70, 188, 0.15);
+        }
+
+        button {
+            background-color: var(--poste-blue); color: #ffffff;
+            border: none; padding: 10px 20px; cursor: pointer;
+            font-weight: 600; font-size: 0.95rem; border-radius: 8px;
+            min-width: 120px; text-align: center;
+            transition: transform 0.1s, opacity 0.2s, background-color 0.2s;
+        }
+
+        button:hover { opacity: 0.9; transform: scale(0.98); }
+        button:active { transform: scale(0.95); }
+        button.accent { background-color: var(--poste-yellow); color: var(--text-main); }
+        button.danger { background-color: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: 4px 8px; min-width: auto; font-size: 0.8rem; border-radius: 6px; }
+        button.danger:hover { background-color: var(--alert-color); color: #fff; border-color: var(--alert-color); }
+        button.secondary { background-color: #e5e5ea; color: var(--text-main); }
+        button.secondary:hover { background-color: #d1d1d6; }
+
+        .grid-container {
+            overflow-x: auto; border: 1px solid var(--border);
+            border-radius: 8px; background: var(--surface);
+        }
+        .grid-container::-webkit-scrollbar { height: 10px; }
+        .grid-container::-webkit-scrollbar-track { background: var(--bg-color); border-radius: 8px; }
+        .grid-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 8px; }
+
+        table { border-collapse: collapse; width: 100%; min-width: max-content; }
+
+        th, td {
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            padding: 10px 12px; text-align: center; vertical-align: middle; font-size: 0.9rem;
+        }
+        th:last-child, td:last-child { border-right: none; }
+        tr:last-child td { border-bottom: none; }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            color: var(--text-main); position: sticky; top: 0; z-index: 1;
+            font-weight: 600; font-size: 0.85rem;
+        }
+
+        td.cell-day { cursor: pointer; user-select: none; width: 50px; font-weight: 600; transition: background-color 0.1s; }
+
+        /* Colonne nomi sticky corrette per ignorare il colspan della riga contatore */
+        th:nth-child(1), tr:not(.counter-row) > td:nth-child(1) {
+            position: sticky; left: 0; z-index: 2;
+            background-color: var(--surface); text-align: left; min-width: 140px;
+        }
+        th:nth-child(2), tr:not(.counter-row) > td:nth-child(2) {
+            position: sticky; left: 140px; z-index: 2;
+            background-color: var(--surface); text-align: left; min-width: 140px; border-right: 2px solid var(--border);
+        }
+        th:nth-child(1), th:nth-child(2) {
+            background-color: rgba(255, 255, 255, 0.9); z-index: 3; color: var(--text-muted);
+        }
+        
+        .counter-row td { background-color: var(--bg-color); font-weight: 600; }
+        .counter-row td:first-child { position: sticky; left: 0; z-index: 2; background-color: var(--bg-color); text-align: right; border-right: 2px solid var(--border); padding-right: 15px;}
+
+        .weekend { background-color: var(--weekend-bg) !important; color: var(--text-muted); cursor: not-allowed; }
+        .holiday { background-color: var(--weekend-bg) !important; color: var(--alert-color); cursor: not-allowed; font-weight: bold; }
+        
+        .state-F { background-color: var(--poste-blue); color: #fff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
+        .state-S { background-color: var(--poste-yellow); color: var(--text-main); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05); }
+        
+        .counter-alert { color: var(--alert-color); }
+
+        .alert-box {
+            background-color: #fff2f2; border: 1px solid #ffcaca; border-left: 4px solid var(--alert-color);
+            padding: 16px; border-radius: 8px; margin-top: 16px; font-size: 0.95rem; color: #333;
+        }
+
+        .member-row { display: flex; justify-content: space-between; align-items: center; }
+        .hidden { display: none; }
+        
+        .badge-leader {
+            color: var(--poste-yellow); background: var(--poste-blue); padding: 2px 6px;
+            border-radius: 4px; font-size: 0.7rem; font-weight: 700; margin-left: 6px; display: inline-block;
+        }
+
+        /* Stile per i nomi modificabili */
+        .editable-name {
+            padding: 2px 4px; border-radius: 4px; border: 1px dashed transparent;
+            transition: all 0.2s; outline: none; cursor: text;
+        }
+        .editable-name:hover { border-color: var(--border); background: rgba(0,0,0,0.03); }
+        .editable-name:focus { border-color: var(--poste-blue); background: #fff; border-style: solid; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Pianificazione Team</h1>
+</header>
+
+<div class="container">
+    <div class="panel">
+        <h2>1. Impostazioni Periodo</h2>
+        <div class="flex-row">
+            <div class="input-group"><label>Data Inizio</label><input type="date" id="startDate"></div>
+            <div class="input-group"><label>Data Fine</label><input type="date" id="endDate"></div>
+            <button onclick="generateGrid(this)">Applica Periodo</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>2. Gestione Membri</h2>
+        <div class="flex-row" style="align-items: center;">
+            <div class="input-group"><label>Cognome</label><input type="text" id="newLastName" placeholder="Rossi" style="min-width:160px;"></div>
+            <div class="input-group"><label>Nome</label><input type="text" id="newFirstName" placeholder="Mario" style="min-width:160px;"></div>
+            <div class="input-group" style="flex-direction: row; align-items: center; gap: 8px; margin-bottom: 5px; min-width: 120px; margin-left: 10px;">
+                <input type="checkbox" id="newIsLeader" style="width:18px; height:18px; accent-color: var(--poste-blue); cursor: pointer;">
+                <label for="newIsLeader" style="margin-top:2px; cursor: pointer;">Team Leader</label>
+            </div>
+            <button class="accent" onclick="addMember(this)">Aggiungi</button>
+        </div>
+    </div>
+
+    <div class="panel" id="gridPanel" style="display:none;">
+        <h2>3. Griglia Pianificazione</h2>
+        <p style="margin-bottom:16px; font-size:0.9rem; color: var(--text-muted);">
+            Clicca sulle celle per scorrere lo stato: <strong>Vuoto &rarr; Ferie (F) &rarr; Smart (S) &rarr; Vuoto</strong>.<br>
+            <em>Suggerimento: Clicca sul Nome o Cognome in tabella per modificarlo.</em>
+        </p>
+        <div class="grid-container" id="tableContainer"></div>
+        <div id="alertContainer" class="hidden"></div>
+    </div>
+
+    <div class="panel">
+        <h2>4. Esportazione / Importazione</h2>
+        <div class="flex-row">
+            <button onclick="exportExcel(this, false)">Esporta Excel (Completo)</button>
+            <button class="secondary" onclick="exportExcel(this, true)">Esporta Excel (Senza Smart)</button>
+            <button class="secondary" onclick="exportJSON(this)">Esporta Dati (JSON)</button>
+            <div class="input-group" style="flex-direction: row; align-items: center; gap: 12px; border-left: 1px solid var(--border); padding-left: 20px; margin-left: 10px;">
+                <input type="file" id="importFile" accept=".json" style="max-width: 220px; font-size: 0.85rem; border: none; background: transparent; padding: 0;">
+                <button class="secondary" onclick="importJSON(this)">Importa Dati</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let appData = { startDate: '', endDate: '', members: [], plans: {} };
+    // Array nomi completi per l'Excel
+    const daysFull = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+
+    window.onload = () => {
+        const saved = localStorage.getItem('teamPlannerData');
+        if (saved) {
+            try {
+                appData = JSON.parse(saved);
+                if (appData.members.length > 0 && typeof appData.members[0] === 'string') {
+                    appData.members = appData.members.map(m => {
+                        const parts = m.split(' ');
+                        const nome = parts.pop();
+                        const cognome = parts.join(' ');
+                        return { id: m, cognome: cognome || m, nome: nome || '', isLeader: false };
+                    });
+                }
+                document.getElementById('startDate').value = appData.startDate;
+                document.getElementById('endDate').value = appData.endDate;
+                if (appData.startDate && appData.endDate) renderTable();
+            } catch (e) { console.error("Errore lettura", e); }
+        }
+    };
+
+    function saveData() { localStorage.setItem('teamPlannerData', JSON.stringify(appData)); }
+    function triggerFeedback(btn, msg = "Fatto!") {
+        const originalText = btn.innerText; btn.innerText = msg; btn.style.opacity = 0.8;
+        setTimeout(() => { btn.innerText = originalText; btn.style.opacity = 1; }, 1500);
+    }
+
+    function getPasquetta(year) {
+        const f = Math.floor, G = year % 19, C = f(year / 100);
+        const H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30;
+        const I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11));
+        const J = (year + f(year / 4) + I + 2 - C + f(C / 4)) % 7;
+        const L = I - J, month = 3 + f((L + 40) / 44), day = L + 28 - 31 * f(month / 4);
+        const easter = new Date(year, month - 1, day, 12, 0, 0); easter.setDate(easter.getDate() + 1); 
+        return easter;
+    }
+
+    function checkDayType(dateObj) {
+        const dayOfWeek = dateObj.getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) return 'weekend';
+        const d = dateObj.getDate(); const m = dateObj.getMonth() + 1;
+        const fixedHolidays = ['1-1', '6-1', '25-4', '1-5', '2-6', '29-6', '15-8', '1-11', '8-12', '25-12', '26-12']; 
+        if (fixedHolidays.includes(`${d}-${m}`)) return 'holiday';
+        const pasquetta = getPasquetta(dateObj.getFullYear());
+        if (d === pasquetta.getDate() && m === (pasquetta.getMonth() + 1)) return 'holiday';
+        return 'workday';
+    }
+
+    function dateToString(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function stringToDate(str) {
+        const [y, m, d] = str.split('-'); return new Date(y, m - 1, d, 12, 0, 0);
+    }
+
+    function generateGrid(btn) {
+        const start = document.getElementById('startDate').value; const end = document.getElementById('endDate').value;
+        if (!start || !end) return alert("Seleziona data di inizio e fine.");
+        if (new Date(start) > new Date(end)) return alert("Data inizio errata.");
+        appData.startDate = start; appData.endDate = end;
+        saveData(); renderTable(); triggerFeedback(btn);
+    }
+
+    function addMember(btn) {
+        const cognome = document.getElementById('newLastName').value.trim();
+        const nome = document.getElementById('newFirstName').value.trim();
+        const isLeader = document.getElementById('newIsLeader').checked;
+        if (!cognome || !nome) return alert("Inserisci Cognome e Nome.");
+        
+        const id = `${cognome} ${nome}`;
+        if (appData.members.some(m => m.id === id)) return alert("Membro già presente.");
+        
+        appData.members.push({ id, cognome, nome, isLeader });
+        appData.plans[id] = {};
+        
+        document.getElementById('newLastName').value = ''; document.getElementById('newFirstName').value = '';
+        document.getElementById('newIsLeader').checked = false;
+        
+        saveData(); if (appData.startDate && appData.endDate) renderTable(); triggerFeedback(btn);
+    }
+
+    function removeMember(id) {
+        if (!confirm(`Rimuovere questo membro?`)) return;
+        appData.members = appData.members.filter(m => m.id !== id); delete appData.plans[id];
+        saveData(); renderTable();
+    }
+
+    window.toggleLeader = function(id) {
+        const member = appData.members.find(m => m.id === id);
+        if (member) { member.isLeader = !member.isLeader; saveData(); renderTable(); }
+    };
+
+    // Funzione per l'aggiornamento inline di Nome e Cognome
+    window.updateMember = function(oldId, field, newValue) {
+        newValue = newValue.trim();
+        const memberIndex = appData.members.findIndex(m => m.id === oldId);
+        if (memberIndex === -1 || !newValue) return renderTable(); // Ripristina se vuoto
+
+        const member = appData.members[memberIndex];
+        if (member[field] === newValue) return; // Nessun vero cambiamento
+
+        member[field] = newValue;
+        const newId = `${member.cognome} ${member.nome}`;
+
+        // Se l'ID composito cambia, migriamo i dati delle ferie
+        if (newId !== oldId) {
+            if (appData.members.some(m => m.id === newId && m !== member)) {
+                alert("Nominativo già esistente, impossibile rinominare.");
+                return renderTable(); // Ripristina
+            }
+            member.id = newId;
+            appData.plans[newId] = appData.plans[oldId] || {};
+            delete appData.plans[oldId];
+        }
+        
+        saveData();
+        renderTable(); 
+    };
+
+    function handleEnter(event, element) {
+        if (event.key === 'Enter') { event.preventDefault(); element.blur(); }
+    }
+
+    function cycleState(id, dateStr, cell) {
+        const currentState = appData.plans[id][dateStr] || '';
+        let newState = currentState === '' ? 'F' : (currentState === 'F' ? 'S' : '');
+        if (newState === '') delete appData.plans[id][dateStr]; else appData.plans[id][dateStr] = newState;
+        saveData(); renderTable(); 
+    }
+
+    function renderTable() {
+        const container = document.getElementById('tableContainer'); const panel = document.getElementById('gridPanel');
+        if (!appData.startDate || !appData.endDate || appData.members.length === 0) return panel.style.display = 'none';
+        
+        panel.style.display = 'block';
+        const dates = []; let current = new Date(stringToDate(appData.startDate)); const endD = stringToDate(appData.endDate);
+        while (current <= endD) { dates.push(new Date(current)); current.setDate(current.getDate() + 1); }
+
+        appData.members.sort((a, b) => {
+            if (a.isLeader && !b.isLeader) return -1;
+            if (!a.isLeader && b.isLeader) return 1;
+            return a.cognome.localeCompare(b.cognome) || a.nome.localeCompare(b.nome);
+        });
+
+        let html = '<table><thead><tr><th>Cognome</th><th>Nome</th>';
+        dates.forEach(d => {
+            const dayType = checkDayType(d);
+            const headerLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2,'0')}<br><span style="font-weight:400; color:var(--text-muted); font-size:0.75rem;">${daysFull[d.getDay()].substring(0,3)}</span>`;
+            html += `<th class="${dayType === 'workday' ? '' : dayType}">${headerLabel}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        const presences = new Array(dates.length).fill(0); const uncoveredDays = [];
+
+        appData.members.forEach(member => {
+            const leaderBadge = member.isLeader ? '<span class="badge-leader">L</span>' : '';
+            const leaderBtnStyle = member.isLeader ? 'background-color:var(--poste-blue); color:var(--poste-yellow); border-color:var(--poste-blue);' : '';
+            
+            html += `<tr>
+                        <td>
+                            <div style="display:flex; align-items:center;">
+                                <span class="editable-name" contenteditable="true" spellcheck="false" 
+                                      onblur="updateMember('${member.id}', 'cognome', this.innerText)" 
+                                      onkeydown="handleEnter(event, this)">${member.cognome}</span>
+                                ${leaderBadge}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="member-row">
+                                <span class="editable-name" contenteditable="true" spellcheck="false" 
+                                      onblur="updateMember('${member.id}', 'nome', this.innerText)" 
+                                      onkeydown="handleEnter(event, this)">${member.nome}</span> 
+                                <div style="display:flex; gap:6px;">
+                                    <button class="danger" style="${leaderBtnStyle}" onclick="window.toggleLeader('${member.id}')" title="Attiva/Disattiva Team Leader">L</button>
+                                    <button class="danger" onclick="removeMember('${member.id}')" title="Rimuovi">X</button>
+                                </div>
+                            </div>
+                        </td>`;
+            
+            dates.forEach((d, i) => {
+                const dateStr = dateToString(d); const dayType = checkDayType(d);
+                const state = appData.plans[member.id] && appData.plans[member.id][dateStr] ? appData.plans[member.id][dateStr] : '';
+                if (dayType === 'workday') {
+                    if (state !== 'F') presences[i]++; 
+                    html += `<td class="cell-day ${state ? 'state-'+state : ''}" onclick="cycleState('${member.id}', '${dateStr}', this)">${state}</td>`;
+                } else { html += `<td class="${dayType}"></td>`; }
+            });
+            html += '</tr>';
+        });
+
+        html += '<tr class="counter-row"><td colspan="2" style="color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem;">Totale in servizio</td>';
+        dates.forEach((d, i) => {
+            if (checkDayType(d) === 'workday') {
+                if (presences[i] === 0) uncoveredDays.push(`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth()+1).padStart(2,'0')}`);
+                html += `<td class="${presences[i] === 0 ? 'counter-alert' : ''}">${presences[i]}</td>`;
+            } else { html += `<td class="${checkDayType(d)}">-</td>`; }
+        });
+        container.innerHTML = html + '</tr></tbody></table>';
+
+        const alertC = document.getElementById('alertContainer');
+        if (uncoveredDays.length > 0) {
+            alertC.className = 'alert-box';
+            alertC.innerHTML = `<strong>Attenzione:</strong> Nessun presidio garantito nei giorni: ${uncoveredDays.join(', ')}.`;
+        } else { alertC.className = 'hidden'; }
+    }
+
+    function exportJSON(btn) {
+        const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = `Pianificazione_${appData.startDate}.json`; a.click(); URL.revokeObjectURL(a.href); triggerFeedback(btn);
+    }
+
+    function importJSON(btn) {
+        const fileInput = document.getElementById('importFile'); if (!fileInput.files.length) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if (importedData.members) {
+                    appData = importedData;
+                    if (appData.members.length > 0 && typeof appData.members[0] === 'string') {
+                        appData.members = appData.members.map(m => {
+                            const p = m.split(' '); return { id: m, cognome: p.join(' ')||m, nome: p.pop()||'', isLeader: false };
+                        });
+                    }
+                    document.getElementById('startDate').value = appData.startDate || '';
+                    document.getElementById('endDate').value = appData.endDate || '';
+                    saveData(); renderTable(); triggerFeedback(btn, "Importato!");
+                }
+            } catch (err) { alert("Errore file."); }
+        };
+        reader.readAsText(fileInput.files[0]);
+    }
+
+    function exportExcel(btn, hideSmart) {
+        if (!appData.startDate || !appData.endDate || appData.members.length === 0) return alert("Nessun dato da esportare.");
+        const startD = stringToDate(appData.startDate); const endD = stringToDate(appData.endDate);
+        const dates = []; let current = new Date(startD);
+        
+        const headerRow1 = ["Cognome", "Nome"]; const headerRow2 = ["", ""];
+        
+        while (current <= endD) {
+            dates.push(new Date(current));
+            headerRow1.push(`${String(current.getDate()).padStart(2, '0')}/${String(current.getMonth()+1).padStart(2,'0')}`);
+            headerRow2.push(daysFull[current.getDay()]); // Usa il nome esteso del giorno
+            current.setDate(current.getDate() + 1);
+        }
+
+        const aoa = [headerRow1, headerRow2];
+        
+        appData.members.sort((a, b) => {
+            if (a.isLeader && !b.isLeader) return -1; if (!a.isLeader && b.isLeader) return 1;
+            return a.cognome.localeCompare(b.cognome) || a.nome.localeCompare(b.nome);
+        });
+
+        appData.members.forEach(member => {
+            const row = [member.cognome, member.nome];
+            dates.forEach(d => {
+                let val = '';
+                if (checkDayType(d) === 'workday') {
+                    let state = appData.plans[member.id] && appData.plans[member.id][dateToString(d)] ? appData.plans[member.id][dateToString(d)] : '';
+                    if (hideSmart && state === 'S') state = '';
+                    val = state;
+                }
+                row.push(val);
+            });
+            aoa.push(row);
+        });
+
+        const wb = XLSX.utils.book_new(); const ws = XLSX.utils.aoa_to_sheet(aoa);
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        
+        // Formattazione Avanzata basata sull'immagine fornita
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_ref = XLSX.utils.encode_cell({c:C, r:R});
+                if(!ws[cell_ref]) ws[cell_ref] = { t: "s", v: "" };
+                let cell = ws[cell_ref];
+                
+                cell.s = { 
+                    font: { name: "Arial", sz: 11 }, 
+                    alignment: { horizontal: "center", vertical: "center" }, 
+                    border: { 
+                        top: { style: "thin", color: { rgb: "000000" } }, bottom: { style: "thin", color: { rgb: "000000" } }, 
+                        left: { style: "thin", color: { rgb: "000000" } }, right: { style: "thin", color: { rgb: "000000" } } 
+                    } 
+                };
+
+                if (R === 0 || R === 1) {
+                    if (C < 2) {
+                        // Headers "Cognome" / "Nome"
+                        cell.s.font = { name: "Arial", sz: 14, bold: true, color: { rgb: "0146BC" } };
+                        cell.s.fill = { fgColor: { rgb: "F5F5F7" } };
+                    } else {
+                        // Headers Date e Giorni
+                        const dayType = checkDayType(dates[C - 2]);
+                        const isWeekend = (dayType === 'weekend' || dayType === 'holiday');
+                        cell.s.fill = { fgColor: { rgb: isWeekend ? "EAEAEA" : "FFFFFF" } }; // Grigio per i weekend, bianco per feriali
+                        
+                        if (R === 0) {
+                            cell.s.font = { name: "Arial", sz: 12, bold: true, color: { rgb: isWeekend ? "666666" : "0146BC" } };
+                        } else {
+                            cell.s.font = { name: "Arial", sz: 10, bold: isWeekend, color: { rgb: isWeekend ? "666666" : "0146BC" } };
+                        }
+                    }
+                } else if (C >= 2) {
+                    // Celle dati
+                    const dayType = checkDayType(dates[C - 2]);
+                    const isWeekend = (dayType === 'weekend' || dayType === 'holiday');
+                    
+                    if (cell.v === 'F') {
+                        cell.s.fill = { fgColor: { rgb: "204BB5" } }; // Blu Intenso per le ferie
+                        cell.s.font = { name: "Arial", sz: 11, bold: true, color: { rgb: "FFFFFF" } };
+                    } else if (cell.v === 'S') {
+                        cell.s.fill = { fgColor: { rgb: "EDDC01" } }; 
+                        cell.s.font = { name: "Arial", sz: 11, bold: true, color: { rgb: "0146BC" } };
+                    } else {
+                        cell.s.fill = { fgColor: { rgb: isWeekend ? "EAEAEA" : "FFFFFF" } }; // Sfondo grigio in cascata per i weekend
+                        cell.s.font = { name: "Arial", sz: 11, color: { rgb: "000000" } };
+                    }
+                } else {
+                    // Celle Nomi / Cognomi
+                    cell.s.alignment.horizontal = "left";
+                    cell.s.font = { name: "Arial", sz: 12, color: { rgb: "000000" } };
+                }
+            }
+        }
+
+        if (!ws['!merges']) ws['!merges'] = [];
+        ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 1, c: 0 } });
+        ws['!merges'].push({ s: { r: 0, c: 1 }, e: { r: 1, c: 1 } });
+
+        const wscols = [{ wch: 18 }, { wch: 15 }];
+        for(let i=0; i<dates.length; i++) wscols.push({ wch: 11 }); // Colonne più larghe per accomodare il nome del giorno esteso
+        ws['!cols'] = wscols;
+
+        XLSX.utils.book_append_sheet(wb, ws, "Pianificazione");
+        const suffix = hideSmart ? "_NoSmart" : "";
+        XLSX.writeFile(wb, `FerieTeam_${appData.startDate}${suffix}.xlsx`);
+        triggerFeedback(btn, "Scaricato!");
+    }
+</script>
+
+</body>
+</html>
